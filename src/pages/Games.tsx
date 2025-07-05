@@ -22,6 +22,10 @@ const Games = () => {
   const [genres, setGenres] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const gamesPerPage = 12;
+  const [featuredGameIndex, setFeaturedGameIndex] = useState(0);
+  const [dominantColor, setDominantColor] = useState('#00D4FF');
 
 
 
@@ -85,7 +89,56 @@ const Games = () => {
     return matchesSearch && matchesGenre && matchesConsole;
   });
 
-  const featuredGame = games.find(game => game.is_popular && game.is_new);
+  const totalPages = Math.ceil(filteredGames.length / gamesPerPage);
+  const startIndex = (currentPage - 1) * gamesPerPage;
+  const paginatedGames = filteredGames.slice(startIndex, startIndex + gamesPerPage);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedGenre, selectedConsole]);
+
+  // Auto-rotate featured game every 5 seconds
+  useEffect(() => {
+    const ps5Games = games.filter(game => game.console_type === 'ps5');
+    if (ps5Games.length === 0) return;
+
+    const interval = setInterval(() => {
+      setFeaturedGameIndex(prev => (prev + 1) % ps5Games.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [games]);
+
+  const ps5Games = games.filter(game => game.console_type === 'ps5');
+  const featuredGame = ps5Games.length > 0 ? ps5Games[featuredGameIndex] : null;
+
+  const getGameColor = (gameTitle) => {
+    const gameColors = {
+      'Spider-Man 2': '#DC143C',
+      'FIFA 24': '#00A651',
+      'Call of Duty: Modern Warfare III': '#FF6B35',
+      'Gran Turismo 7': '#1E90FF',
+      'God of War Ragnarök': '#B8860B',
+      'Tekken 8': '#FF1493',
+      'Elden Ring': '#DAA520',
+      'Horizon Forbidden West': '#FF4500',
+      'Cyberpunk 2077': '#FFFF00',
+      'Street Fighter 6': '#FF69B4',
+      'Ghost of Tsushima': '#8B0000',
+      'Red Dead Redemption 2': '#CD853F',
+      'The Witcher 3: Wild Hunt': '#4B0082',
+      'Need for Speed Heat': '#FF4500',
+      'F1 23': '#FF0000'
+    };
+    return gameColors[gameTitle] || '#00D4FF';
+  };
+
+  useEffect(() => {
+    if (featuredGame?.title) {
+      setDominantColor(getGameColor(featuredGame.title));
+    }
+  }, [featuredGame]);
 
   return (
     <div className="pt-20 min-h-screen">
@@ -113,8 +166,16 @@ const Games = () => {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="bg-gradient-to-r from-dark-card to-dark-hover border border-neon-blue/20 rounded-lg p-8 mb-12 relative overflow-hidden"
+            className="border border-neon-blue/20 rounded-lg p-8 mb-12 relative overflow-hidden"
+            style={{
+              backgroundImage: featuredGame.image_url ? `url(${featuredGame.image_url})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            }}
           >
+            {/* Background Overlay */}
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
             <div className="absolute top-4 right-4 flex space-x-2">
               {featuredGame.is_new && (
                 <span className="px-3 py-1 bg-neon-green text-dark-bg text-sm font-bold rounded-full">
@@ -128,7 +189,7 @@ const Games = () => {
               )}
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center relative z-10">
               <div>
                 <h2 className="font-gaming text-3xl font-bold text-white mb-4">
                   {featuredGame.title}
@@ -152,7 +213,19 @@ const Games = () => {
                   </div>
                 </div>
                 
-                <button className="px-6 py-3 bg-gradient-to-r from-neon-blue to-neon-purple text-white font-bold rounded-lg hover:animate-glow transition-all duration-300">
+                <button 
+                  className="px-6 py-3 bg-transparent border-2 text-white font-bold rounded-lg hover:animate-glow transition-all duration-300"
+                  style={{
+                    borderColor: dominantColor,
+                    '--hover-bg': dominantColor
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = dominantColor;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = 'transparent';
+                  }}
+                >
                   Play Now
                 </button>
               </div>
@@ -255,97 +328,148 @@ const Games = () => {
 
         {/* Games Grid */}
         {!loading && !error && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-          >
-            {filteredGames.map((game, index) => (
-              <motion.div
-                key={game.id}
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="bg-dark-card border border-gray-700 hover:border-neon-blue/50 rounded-lg overflow-hidden group transition-all duration-300 hover:transform hover:scale-105"
-              >
-                {/* Game Image */}
-                <div className="relative h-48 overflow-hidden">
-                  {game.image_url ? (
-                    <img 
-                      src={game.image_url} 
-                      alt={game.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div className={`absolute inset-0 ${game.image_url ? 'hidden' : 'flex'} items-center justify-center bg-gradient-to-br from-dark-card to-dark-hover`}>
-                    <div className="text-4xl">{getGameIcon(game.title)}</div>
-                  </div>
-                  
-                  {/* Overlay */}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                    <button className="px-4 py-2 bg-neon-blue text-white rounded-lg font-medium hover:bg-neon-blue/80 transition-colors">
-                      Play Now
-                    </button>
-                  </div>
-                  
-                  {/* Badges */}
-                  <div className="absolute top-3 right-3 flex flex-col space-y-1">
-                    {game.is_new && (
-                      <span className="px-2 py-1 bg-neon-green text-dark-bg text-xs font-bold rounded">
-                        NEW
-                      </span>
-                    )}
-                    {game.is_popular && (
-                      <span className="px-2 py-1 bg-neon-purple text-white text-xs font-bold rounded">
-                        HOT
-                      </span>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Game Info */}
-                <div className="p-4">
-                  <h3 className="font-bold text-white text-lg mb-2 line-clamp-1">
-                    {game.title}
-                  </h3>
-                  
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-neon-blue text-sm font-medium">
-                      {game.genre?.display_name || 'Unknown'}
-                    </span>
-                    <span className="text-gray-400 text-sm">
-                      {game.console_type.toUpperCase()}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-1 text-yellow-400">
-                      <Star className="w-4 h-4 fill-current" />
-                      <span className="text-sm font-bold">{game.rating}</span>
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            >
+              {paginatedGames.map((game, index) => (
+                <motion.div
+                  key={game.id}
+                  initial={{ opacity: 0, y: 50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className="relative bg-gradient-to-br from-dark-card to-dark-card/80 border border-gray-700/50 hover:border-neon-blue/70 rounded-xl overflow-hidden group transition-all duration-500 hover:transform hover:scale-105 hover:shadow-2xl hover:shadow-neon-blue/20 backdrop-blur-sm"
+                >
+                  {/* Glow effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-neon-blue/5 via-transparent to-neon-purple/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  {/* Game Image */}
+                  <div className="relative h-48 overflow-hidden">
+                    {game.image_url ? (
+                      <img 
+                        src={game.image_url} 
+                        alt={game.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 filter group-hover:brightness-110"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div className={`absolute inset-0 ${game.image_url ? 'hidden' : 'flex'} items-center justify-center bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900`}>
+                      <div className="text-5xl opacity-60 group-hover:opacity-80 transition-opacity duration-300">{getGameIcon(game.title)}</div>
                     </div>
                     
-                    <div className="flex items-center space-x-3 text-gray-400 text-sm">
-                      <div className="flex items-center space-x-1">
-                        <Users className="w-4 h-4" />
-                        <span>{game.max_players}</span>
-                      </div>
-                      {game.estimated_duration && (
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4" />
-                          <span>{game.estimated_duration}</span>
-                        </div>
+                    {/* Image overlay gradient */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60"></div>
+                    
+                    {/* Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center">
+                      <button 
+                        onClick={() => {
+                          const slug = game.title.toLowerCase()
+                            .replace(/[^a-z0-9 -]/g, '')
+                            .replace(/\s+/g, '-')
+                            .replace(/-+/g, '-');
+                          window.location.href = `/games/${slug}`;
+                        }}
+                        className="px-6 py-3 bg-gradient-to-r from-neon-blue to-blue-600 text-white rounded-xl font-semibold hover:from-neon-blue/90 hover:to-blue-600/90 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-neon-blue/30 backdrop-blur-sm border border-neon-blue/30"
+                      >
+                        View Details
+                      </button>
+                    </div>
+                    
+                    {/* Badges */}
+                    <div className="absolute top-4 right-4 flex flex-col space-y-2 z-10">
+                      {game.is_new && (
+                        <span className="px-3 py-1.5 bg-gradient-to-r from-neon-green to-green-500 text-dark-bg text-xs font-bold rounded-full shadow-lg shadow-neon-green/30 backdrop-blur-sm border border-neon-green/30 animate-pulse">
+                          NEW
+                        </span>
+                      )}
+                      {game.is_popular && (
+                        <span className="px-3 py-1.5 bg-gradient-to-r from-neon-purple to-purple-600 text-white text-xs font-bold rounded-full shadow-lg shadow-neon-purple/30 backdrop-blur-sm border border-neon-purple/30">
+                          HOT
+                        </span>
                       )}
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+                  
+                  {/* Game Info */}
+                  <div className="relative p-5 bg-gradient-to-b from-transparent to-dark-card/50">
+                    <h3 className="font-bold text-white text-lg mb-3 line-clamp-1 group-hover:text-neon-blue transition-colors duration-300">
+                      {game.title}
+                    </h3>
+                    
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="px-3 py-1 bg-neon-blue/20 text-neon-blue text-xs font-semibold rounded-full border border-neon-blue/30">
+                        {game.genre?.display_name || 'Unknown'}
+                      </span>
+                      <span className="px-3 py-1 bg-gray-700/50 text-gray-300 text-xs font-medium rounded-full border border-gray-600/50">
+                        {game.console_type.toUpperCase()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-1.5 px-2 py-1 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
+                        <Star className="w-4 h-4 fill-current text-yellow-400" />
+                        <span className="text-sm font-bold text-yellow-400">{game.rating}</span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-4 text-gray-400 text-sm">
+                        <div className="flex items-center space-x-1.5 px-2 py-1 bg-gray-700/30 rounded-lg">
+                          <Users className="w-4 h-4" />
+                          <span className="font-medium">{game.max_players}</span>
+                        </div>
+                        {game.estimated_duration && (
+                          <div className="flex items-center space-x-1.5 px-2 py-1 bg-gray-700/30 rounded-lg">
+                            <Clock className="w-4 h-4" />
+                            <span className="font-medium">{game.estimated_duration}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center space-x-2 mt-8">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 bg-dark-card border border-gray-600 rounded-lg hover:border-neon-blue disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white"
+                >
+                  Previous
+                </button>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-4 py-2 rounded-lg transition-colors ${
+                      currentPage === page
+                        ? 'bg-neon-blue text-white'
+                        : 'bg-dark-card border border-gray-600 hover:border-neon-blue text-white'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 bg-dark-card border border-gray-600 rounded-lg hover:border-neon-blue disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
         )}
         
         {/* No Results */}

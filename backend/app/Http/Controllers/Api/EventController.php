@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Models\EventParticipant;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -11,7 +12,8 @@ class EventController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Event::query();
+        $query = Event::with(['game', 'participants'])
+                     ->withCount('participants');
         
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -61,7 +63,8 @@ class EventController extends Controller
             'prize_pool' => 'nullable|string|max:255',
             'status' => 'required|in:upcoming,ongoing,completed,cancelled',
             'image_url' => 'nullable|url',
-            'is_featured' => 'boolean'
+            'is_featured' => 'boolean',
+            'game_id' => 'nullable|exists:games,id|required_if:event_type,tournament'
         ]);
         
         $event = Event::create($validated);
@@ -87,7 +90,8 @@ class EventController extends Controller
             'prize_pool' => 'nullable|string|max:255',
             'status' => 'sometimes|in:upcoming,ongoing,completed,cancelled',
             'image_url' => 'nullable|url',
-            'is_featured' => 'boolean'
+            'is_featured' => 'boolean',
+            'game_id' => 'nullable|exists:games,id|required_if:event_type,tournament'
         ]);
         
         $event->update($validated);
@@ -107,5 +111,52 @@ class EventController extends Controller
             'success' => true,
             'message' => 'Event deleted successfully'
         ]);
+    }
+
+    public function register(Request $request, Event $event): JsonResponse
+    {
+        $user = $request->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication required'
+            ], 401);
+        }
+        
+        // Debug log
+        \Log::info('Event registration attempt', [
+            'user_id' => $user->id,
+            'event_id' => $event->id
+        ]);
+
+        // Check if already registered
+        if ($event->participants()->where('user_id', $user->id)->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are already registered for this event'
+            ], 400);
+        }
+
+        // Check if event is full
+        if ($event->participants()->count() >= $event->max_participants) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Event is full'
+            ], 400);
+        }
+
+        // Create registration
+        $participant = $event->participants()->create([
+            'user_id' => $user->id,
+            'amount_paid' => $event->entry_fee,
+            'payment_status' => $event->entry_fee > 0 ? 'pending' : 'paid'
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registration successful',
+            'data' => $participant
+        ], 201);
     }
 }

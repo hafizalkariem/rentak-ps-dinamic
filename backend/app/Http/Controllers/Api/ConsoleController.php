@@ -21,6 +21,12 @@ class ConsoleController extends Controller
             $query->available();
         }
         
+        if ($request->has('with') && $request->with === 'stations') {
+            $query->with(['stations' => function($query) {
+                $query->withPivot('id');
+            }]);
+        }
+        
         $consoles = $query->get();
         
         return response()->json([

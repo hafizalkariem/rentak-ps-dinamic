@@ -6,6 +6,16 @@ const AdminEvents = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   useEffect(() => {
     fetchEvents();
   }, []);
@@ -50,7 +60,7 @@ const AdminEvents = () => {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-400">Date:</span>
-                <span className="text-white">{event.event_date}</span>
+                <span className="text-white">{formatDate(event.event_date)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Prize Pool:</span>

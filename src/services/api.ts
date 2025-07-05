@@ -67,6 +67,7 @@ export const bookingService = {
   create: (data: any) => api.post('/bookings', data),
   update: (id: string, data: any) => api.put(`/bookings/${id}`, data),
   delete: (id: string) => api.delete(`/bookings/${id}`),
+  checkAvailability: (params: any) => api.get('/bookings/check-availability', { params }),
 };
 
 export const dashboardService = {

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Console extends Model
 {
@@ -26,6 +27,11 @@ class Console extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function stations(): BelongsToMany
+    {
+        return $this->belongsToMany(Station::class);
     }
 
     public function scopeAvailable($query)

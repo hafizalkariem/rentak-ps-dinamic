@@ -12,7 +12,7 @@ class BookingController extends Controller
 {
     public function index(): JsonResponse
     {
-        $bookings = Booking::with('console')->latest()->get();
+        $bookings = Booking::with(['consoleStation.console', 'consoleStation.station'])->latest()->get();
         
         return response()->json([
             'success' => true,
@@ -24,7 +24,7 @@ class BookingController extends Controller
     {
         $validated = $request->validate([
             'user_id' => 'nullable|exists:users,id',
-            'console_id' => 'required|exists:consoles,id',
+            'console_station_id' => 'required|exists:console_station,id',
             'booking_date' => 'required|date|after_or_equal:today',
             'start_time' => 'required|string',
             'duration_hours' => 'required|integer|min:1|max:12',
@@ -41,7 +41,7 @@ class BookingController extends Controller
 
         $booking = Booking::create([
             'user_id' => $validated['user_id'] ?? null,
-            'console_id' => $validated['console_id'],
+            'console_station_id' => $validated['console_station_id'],
             'booking_date' => $validated['booking_date'],
             'start_time' => $validated['start_time'],
             'duration_hours' => $validated['duration_hours'],
@@ -58,13 +58,19 @@ class BookingController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Booking created successfully',
+            'data' => $booking->load(['consoleStation.console', 'consoleStation.station'])
+        ], 201);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Booking created successfully',
             'data' => $booking->load('console')
         ], 201);
     }
 
     public function show(string $id): JsonResponse
     {
-        $booking = Booking::with('console')->findOrFail($id);
+        $booking = Booking::with(['consoleStation.console', 'consoleStation.station'])->findOrFail($id);
         
         return response()->json([
             'success' => true,
@@ -86,7 +92,7 @@ class BookingController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Booking updated successfully',
-            'data' => $booking->load('console')
+            'data' => $booking->load(['consoleStation.console', 'consoleStation.station'])
         ]);
     }
 
@@ -98,6 +104,28 @@ class BookingController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Booking deleted successfully'
+        ]);
+    }
+
+    public function checkAvailability(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'date' => 'required|date',
+            'console_station_id' => 'sometimes|exists:console_station,id'
+        ]);
+
+        $query = Booking::where('booking_date', $validated['date'])
+                       ->whereIn('status', ['confirmed', 'pending']);
+
+        if (isset($validated['console_station_id'])) {
+            $query->where('console_station_id', $validated['console_station_id']);
+        }
+
+        $bookedSlots = $query->get(['console_station_id', 'start_time', 'end_time']);
+
+        return response()->json([
+            'success' => true,
+            'data' => $bookedSlots
         ]);
     }
 }

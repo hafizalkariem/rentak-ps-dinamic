@@ -6,15 +6,12 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('games', function (Blueprint $table) {
             $table->id();
             $table->string('title');
-            $table->string('genre');
+            $table->foreignId('genre_id')->constrained()->onDelete('cascade');
             $table->enum('console_type', ['ps3', 'ps4', 'ps5']);
             $table->decimal('rating', 2, 1)->default(0.0);
             $table->integer('max_players')->default(1);
@@ -29,9 +26,6 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('games');

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Calendar, 
@@ -14,15 +15,27 @@ import {
 } from 'lucide-react';
 import { eventService } from '../services/api';
 import { Event, ApiResponse } from '../types';
+import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 const Events = () => {
   const [activeTab, setActiveTab] = useState('upcoming');
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentFeaturedIndex, setCurrentFeaturedIndex] = useState(0);
+  const [user, setUser] = useState(null);
+  const [toast, setToast] = useState({ message: '', type: 'success' as 'success' | 'error' | 'warning', isVisible: false });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, event: null as Event | null });
 
   useEffect(() => {
     fetchEvents();
+    
+    // Check user authentication
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
   }, []);
 
   const fetchEvents = async () => {
@@ -33,6 +46,7 @@ const Events = () => {
       setError(null);
     } catch (err) {
       setError('Failed to fetch events');
+      showToast('Failed to load events. Please check your connection.', 'error');
       console.error('Error fetching events:', err);
     } finally {
       setLoading(false);
@@ -50,6 +64,17 @@ const Events = () => {
   };
 
   const upcomingEvents = events.filter(event => event.status === 'upcoming');
+  const featuredEvents = upcomingEvents.filter(event => event.is_featured);
+
+  // Auto-slide featured events every 5 seconds
+  useEffect(() => {
+    if (featuredEvents.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentFeaturedIndex(prev => (prev + 1) % featuredEvents.length);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [featuredEvents.length]);
 
   const pastEvents = [
     {
@@ -98,6 +123,72 @@ const Events = () => {
     }
   };
 
+  const showToast = (message: string, type: 'success' | 'error' | 'warning') => {
+    setToast({ message, type, isVisible: true });
+  };
+
+  const handleRegister = async (event: Event) => {
+    // Check if user is logged in
+    if (!user) {
+      showToast('Please login first to register for events', 'warning');
+      setTimeout(() => window.location.href = '/login', 1500);
+      return;
+    }
+
+    // Check event status
+    if (event.status === 'full') {
+      showToast('Sorry, this event is full!', 'error');
+      return;
+    }
+
+    if (event.status === 'closed') {
+      showToast('Registration for this event is closed.', 'error');
+      return;
+    }
+
+    // Show confirmation modal
+    setConfirmModal({ isOpen: true, event });
+  };
+
+  const handleConfirmRegistration = async () => {
+    const event = confirmModal.event;
+    if (!event) return;
+    
+    setConfirmModal({ isOpen: false, event: null });
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        showToast('Please login first', 'warning');
+        setTimeout(() => window.location.href = '/login', 1500);
+        return;
+      }
+      
+      const response = await fetch(`http://localhost:8000/api/v1/events/${event.id}/register`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showToast('Registration successful! You will receive a confirmation email shortly.', 'success');
+        // Refresh events to update participant count
+        fetchEvents();
+      } else {
+        showToast(data.message || 'Registration failed', 'error');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      showToast('Registration failed. Please try again.', 'error');
+    }
+  };
+
   return (
     <div className="pt-20 min-h-screen">
       <div className="container mx-auto px-4 py-12">
@@ -128,33 +219,55 @@ const Events = () => {
 
         {/* Error State */}
         {error && (
-          <div className="text-center py-12">
-            <p className="text-red-400 mb-4">{error}</p>
-            <button 
-              onClick={fetchEvents}
-              className="px-4 py-2 bg-neon-blue text-white rounded-lg hover:bg-neon-blue/80 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-12"
+          >
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-8 max-w-md mx-auto">
+              <div className="text-6xl mb-4">⚠️</div>
+              <h3 className="text-xl font-bold text-red-400 mb-2">Connection Error</h3>
+              <p className="text-gray-400 mb-6">Unable to load events. Please check your internet connection.</p>
+              <button 
+                onClick={fetchEvents}
+                className="px-6 py-3 bg-gradient-to-r from-neon-blue to-neon-purple text-white font-bold rounded-lg hover:animate-glow transition-all duration-300"
+              >
+                🔄 Try Again
+              </button>
+            </div>
+          </motion.div>
         )}
 
         {/* Featured Event */}
-        {!loading && !error && upcomingEvents.find(event => event.is_featured) && (
+        {!loading && !error && featuredEvents.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 border border-neon-blue/30 rounded-lg p-8 mb-12 relative overflow-hidden"
+            className="relative rounded-lg p-8 mb-12 overflow-hidden border border-neon-blue/30"
+            style={{
+              backgroundImage: featuredEvents[currentFeaturedIndex]?.image_url 
+                ? `url(${featuredEvents[currentFeaturedIndex]?.image_url})` 
+                : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            }}
           >
-            <div className="absolute top-4 right-4">
-              <span className="px-4 py-2 bg-gradient-to-r from-neon-blue to-neon-purple text-white font-bold rounded-full">
-                FEATURED
+            {/* Background overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/80"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-neon-blue/10 to-neon-purple/10"></div>
+            <div className="absolute top-4 right-4 z-10">
+              <span className="px-4 py-2 bg-gradient-to-r from-neon-blue to-neon-purple text-white font-bold rounded-full shadow-lg backdrop-blur-sm">
+                FEATURED {featuredEvents.length > 1 && `${currentFeaturedIndex + 1}/${featuredEvents.length}`}
               </span>
             </div>
             
-            {upcomingEvents.filter(event => event.is_featured).map(event => (
-              <div key={event.id} className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+              {(() => {
+                const event = featuredEvents[currentFeaturedIndex];
+                return (
+                <>
                 <div>
                   <div className="flex items-center space-x-3 mb-4">
                     <div className="text-4xl">{getEventIcon(event.title)}</div>
@@ -165,11 +278,16 @@ const Events = () => {
                       <div className="flex items-center space-x-4 text-sm text-gray-400">
                         <span className="flex items-center space-x-1">
                           <Calendar className="w-4 h-4" />
-                          <span>{event.event_date}</span>
+                          <span>{new Date(event.event_date).toLocaleDateString('id-ID', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          })}</span>
                         </span>
                         <span className="flex items-center space-x-1">
                           <Clock className="w-4 h-4" />
-                          <span>{event.start_time}</span>
+                          <span>{event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}</span>
                         </span>
                       </div>
                     </div>
@@ -187,7 +305,7 @@ const Events = () => {
                     </div>
                     <div className="text-center">
                       <Users className="w-6 h-6 text-neon-blue mx-auto mb-1" />
-                      <div className="text-white font-bold">0/{event.max_participants}</div>
+                      <div className="text-white font-bold">{event.participants_count || 0}/{event.max_participants}</div>
                       <div className="text-xs text-gray-400">Participants</div>
                     </div>
                     <div className="text-center">
@@ -204,17 +322,53 @@ const Events = () => {
                     </div>
                   </div>
                   
-                  <button className="px-8 py-3 bg-gradient-to-r from-neon-blue to-neon-purple text-white font-bold rounded-lg hover:animate-glow transition-all duration-300">
-                    Register Now
-                  </button>
+                  <div className="flex space-x-4">
+                    <button 
+                      onClick={() => handleRegister(event)}
+                      disabled={event.status === 'full' || event.status === 'closed'}
+                      className={`px-8 py-3 font-bold rounded-lg transition-all duration-300 ${
+                        event.status === 'full' || event.status === 'closed'
+                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-neon-blue to-neon-purple text-white hover:animate-glow'
+                      }`}
+                    >
+                      {event.status === 'full' ? 'Event Full' : event.status === 'closed' ? 'Registration Closed' : 'Register Now'}
+                    </button>
+                    <Link 
+                      to={`/events/${event.id}`}
+                      className="px-6 py-3 border border-neon-blue/30 text-neon-blue hover:border-neon-blue hover:text-white rounded-lg transition-all duration-300 font-bold"
+                    >
+                      View Details
+                    </Link>
+                  </div>
                 </div>
                 
                 <div className="text-center">
-                  <div className="text-9xl mb-4 animate-float">{getEventIcon(event.title)}</div>
-                  <div className="text-sm text-gray-400 uppercase tracking-wider">Featured Tournament</div>
+                  {event.event_type === 'tournament' && event.game?.image_url ? (
+                    <div className="relative">
+                      <div className="relative w-64 h-64 mx-auto mb-4">
+                        <img 
+                          src={event.game.image_url} 
+                          alt={event.game.title}
+                          className="w-full h-full object-cover rounded-lg border-2 border-neon-blue/30 hover:border-neon-blue transition-all duration-300"
+                        />
+                        {/* <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div> */}
+                      </div>
+                     
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-9xl mb-4 animate-float">{getEventIcon(event.title)}</div>
+                      <div className="text-sm text-gray-200 uppercase tracking-wider font-bold bg-black/30 px-4 py-2 rounded-full backdrop-blur-sm">
+                        Featured {event.event_type === 'tournament' ? 'Tournament' : 'Event'}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+                </>
+                );
+              })()}
+            </div>
           </motion.div>
         )}
 
@@ -262,14 +416,45 @@ const Events = () => {
                 initial={{ opacity: 0, y: 50 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.1 * index }}
-                className="bg-dark-card border border-gray-600 hover:border-neon-blue/50 rounded-lg p-6 transition-all duration-300 hover:transform hover:scale-105"
+                className="bg-gradient-to-br from-dark-card to-dark-card/80 border border-gray-600 hover:border-neon-blue/50 rounded-xl overflow-hidden transition-all duration-500 hover:transform hover:scale-105 hover:shadow-2xl hover:shadow-neon-blue/20"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="text-4xl">{getEventIcon(event.title)}</div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusBg(event.status)} ${getStatusColor(event.status)}`}>
-                    {event.status.toUpperCase()}
-                  </span>
+                {/* Event Image */}
+                <div className="relative h-48 overflow-hidden">
+                  {event.image_url ? (
+                    <img 
+                      src={event.image_url} 
+                      alt={event.title}
+                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className={`absolute inset-0 ${event.image_url ? 'hidden' : 'flex'} items-center justify-center bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900`}>
+                    <div className="text-6xl opacity-60">{getEventIcon(event.title)}</div>
+                  </div>
+                  
+                  {/* Image overlay gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                  
+                  {/* Status Badge */}
+                  <div className="absolute top-4 right-4">
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold border backdrop-blur-sm ${getStatusBg(event.status)} ${getStatusColor(event.status)}`}>
+                      {event.status.toUpperCase()}
+                    </span>
+                  </div>
+                  
+                  {/* Event Type Badge */}
+                  <div className="absolute top-4 left-4">
+                    <span className="px-3 py-1.5 bg-black/50 text-white text-xs font-semibold rounded-full backdrop-blur-sm border border-white/20">
+                      {event.event_type.toUpperCase()}
+                    </span>
+                  </div>
                 </div>
+                
+                {/* Event Content */}
+                <div className="p-6">
                 
                 <h3 className="font-gaming text-xl font-bold text-white mb-2">
                   {event.title}
@@ -282,7 +467,12 @@ const Events = () => {
                 <div className="space-y-2 mb-4 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-400">Date & Time:</span>
-                    <span className="text-white">{event.event_date} • {event.start_time}</span>
+                    <span className="text-white">
+                      {new Date(event.event_date).toLocaleDateString('id-ID', { 
+                        day: 'numeric', 
+                        month: 'short' 
+                      })} • {event.start_time.slice(0, 5)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-400">Prize:</span>
@@ -294,17 +484,29 @@ const Events = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-400">Participants:</span>
-                    <span className="text-white">0/{event.max_participants}</span>
+                    <span className="text-white">{event.participants_count || 0}/{event.max_participants}</span>
                   </div>
                 </div>
                 
                 <div className="flex space-x-2">
-                  <button className="flex-1 py-2 bg-gradient-to-r from-neon-blue to-neon-purple text-white font-bold rounded-lg hover:animate-glow transition-all duration-300">
-                    Register
+                  <button 
+                    onClick={() => handleRegister(event)}
+                    disabled={event.status === 'full' || event.status === 'closed'}
+                    className={`flex-1 py-2 font-bold rounded-lg transition-all duration-300 ${
+                      event.status === 'full' || event.status === 'closed'
+                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-neon-blue to-neon-purple text-white hover:animate-glow'
+                    }`}
+                  >
+                    {event.status === 'full' ? 'Full' : event.status === 'closed' ? 'Closed' : 'Register'}
                   </button>
-                  <button className="px-4 py-2 border border-gray-600 text-gray-400 hover:border-neon-blue hover:text-neon-blue rounded-lg transition-all duration-300">
+                  <Link 
+                    to={`/events/${event.id}`}
+                    className="px-4 py-2 border border-gray-600 text-gray-400 hover:border-neon-blue hover:text-neon-blue rounded-lg transition-all duration-300 text-center"
+                  >
                     Info
-                  </button>
+                  </Link>
+                </div>
                 </div>
               </motion.div>
             ))}
@@ -430,6 +632,25 @@ const Events = () => {
           </button>
         </motion.div>
       </div>
+      
+      {/* Toast Notification */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={() => setToast({ ...toast, isVisible: false })}
+      />
+      
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title="Confirm Registration"
+        message={confirmModal.event ? `Register for ${confirmModal.event.title}?\n\nEntry Fee: ${confirmModal.event.entry_fee === 0 ? 'Free' : `Rp ${confirmModal.event.entry_fee.toLocaleString()}`}\nDate: ${new Date(confirmModal.event.event_date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
+        confirmText="Register Now"
+        cancelText="Cancel"
+        onConfirm={handleConfirmRegistration}
+        onCancel={() => setConfirmModal({ isOpen: false, event: null })}
+      />
     </div>
   );
 };

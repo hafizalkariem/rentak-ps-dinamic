@@ -22,6 +22,8 @@ import AdminTransactions from './pages/admin/AdminTransactions';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminConsoles from './pages/admin/AdminConsoles';
 import Consoles from './pages/Consoles';
+import GameDetail from './pages/GameDetail';
+import EventDetail from './pages/EventDetail';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -59,8 +61,10 @@ function App() {
                   <Route path="/booking" element={<Booking />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/games" element={<Games />} />
+                  <Route path="/games/:slug" element={<GameDetail />} />
                   <Route path="/consoles" element={<Consoles />} />
                   <Route path="/events" element={<Events />} />
+                  <Route path="/events/:id" element={<EventDetail />} />
                   <Route path="/blog" element={<Blog />} />
                   <Route path="/contact" element={<Contact />} />
                   <Route path="/login" element={<Login />} />

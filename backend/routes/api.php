@@ -29,8 +29,10 @@ Route::prefix('v1')->group(function () {
     
     // Events
     Route::apiResource('events', EventController::class);
+    Route::post('events/{event}/register', [EventController::class, 'register'])->middleware('auth:sanctum');
     
     // Bookings
+    Route::get('bookings/check-availability', [BookingController::class, 'checkAvailability']);
     Route::apiResource('bookings', BookingController::class);
     
     // Dashboard

@@ -13,15 +13,17 @@ import {
   XCircle,
   Loader
 } from 'lucide-react';
-import { consoleService } from '../services/api';
+import { consoleService, gameService } from '../services/api';
 
 const Consoles = () => {
   const [consoles, setConsoles] = useState([]);
+  const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('all');
 
   useEffect(() => {
     fetchConsoles();
+    fetchGames();
   }, []);
 
   const fetchConsoles = async () => {
@@ -34,6 +36,19 @@ const Consoles = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchGames = async () => {
+    try {
+      const response = await gameService.getAll();
+      setGames(response.data || []);
+    } catch (error) {
+      console.error('Error fetching games:', error);
+    }
+  };
+
+  const getGamesCount = (consoleType) => {
+    return games.filter(game => game.console_type === consoleType).length;
   };
 
   const getConsoleIcon = (type) => {
@@ -146,6 +161,7 @@ const Consoles = () => {
                     <h3 className="font-gaming text-xl font-bold text-white mb-2">
                       {console.name}
                     </h3>
+                    <p className="text-gray-400 text-sm mb-2">{console.station}</p>
                     
                     <div className={`text-2xl font-bold text-${color} mb-2`}>
                       Rp {console.hourly_rate?.toLocaleString()}/hour
@@ -183,6 +199,16 @@ const Consoles = () => {
                           </span>
                         </div>
                       )}
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Star className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-400">Total Games</span>
+                        </div>
+                        <span className="text-white font-medium">
+                          {getGamesCount(console.type)} games
+                        </span>
+                      </div>
                       
                       {console.specifications?.features && (
                         <div>

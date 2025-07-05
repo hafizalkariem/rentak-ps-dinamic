@@ -10,7 +10,7 @@ class Booking extends Model
 {
     protected $fillable = [
         'user_id',
-        'console_id',
+        'console_station_id',
         'booking_date',
         'start_time',
         'duration_hours',
@@ -49,9 +49,23 @@ class Booking extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function consoleStation(): BelongsTo
+    {
+        return $this->belongsTo(ConsoleStation::class, 'console_station_id');
+    }
+
     public function console(): BelongsTo
     {
-        return $this->belongsTo(Console::class);
+        return $this->belongsTo(Console::class, 'console_id', 'id')
+                    ->join('console_station', 'consoles.id', '=', 'console_station.console_id')
+                    ->where('console_station.id', $this->console_station_id);
+    }
+
+    public function station(): BelongsTo
+    {
+        return $this->belongsTo(Station::class, 'station_id', 'id')
+                    ->join('console_station', 'stations.id', '=', 'console_station.station_id')
+                    ->where('console_station.id', $this->console_station_id);
     }
 
     public function scopeActive($query)

@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { dashboardService } from '../services/api';
 import { ApiResponse } from '../types';
+import heroBg from '../assets/images/bg-1.jpg';
+import ctaBg from '../assets/images/bg-4.jpg';
 
 const Home = () => {
   const [stats, setStats] = useState([
@@ -24,9 +26,15 @@ const Home = () => {
     { label: 'Games Available', value: '0', icon: Play }
   ]);
   const [loading, setLoading] = useState(true);
+  const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
     fetchStats();
+    
+    // Parallax scroll handler
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const fetchStats = async () => {
@@ -90,13 +98,36 @@ const Home = () => {
     <div className="pt-20">
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-dark-bg via-dark-card to-dark-hover opacity-90"></div>
+        {/* Background Image with Parallax */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ 
+            backgroundImage: `url(${heroBg})`,
+            transform: `translateY(${scrollY * 0.5}px)`
+          }}
+        ></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/70"></div>
         
-        {/* Background Pattern */}
+        {/* Background Pattern with Parallax */}
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-10 w-64 h-64 bg-neon-blue rounded-full blur-3xl animate-float"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-neon-purple rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }}></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-neon-green rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
+          <div 
+            className="absolute top-20 left-10 w-64 h-64 bg-neon-blue rounded-full blur-3xl animate-float"
+            style={{ transform: `translateY(${scrollY * 0.3}px)` }}
+          ></div>
+          <div 
+            className="absolute bottom-20 right-10 w-96 h-96 bg-neon-purple rounded-full blur-3xl animate-float" 
+            style={{ 
+              animationDelay: '1s',
+              transform: `translateY(${scrollY * -0.2}px)`
+            }}
+          ></div>
+          <div 
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-neon-green rounded-full blur-3xl animate-float" 
+            style={{ 
+              animationDelay: '2s',
+              transform: `translate(-50%, -50%) translateY(${scrollY * 0.1}px)`
+            }}
+          ></div>
         </div>
 
         <div className="container mx-auto px-4 relative z-10">
@@ -153,8 +184,8 @@ const Home = () => {
               {stats.map((stat, index) => {
                 const Icon = stat.icon;
                 return (
-                  <div key={index} className="bg-dark-card/50 backdrop-blur-sm border border-neon-blue/20 rounded-lg p-6 hover:border-neon-blue/50 transition-all duration-300">
-                    <Icon className="w-8 h-8 text-neon-blue mx-auto mb-2" />
+                  <div key={index} className="bg-dark-card/50 backdrop-blur-sm border border-neon-blue/40 rounded-lg p-6 hover:border-neon-blue hover:shadow-[0_0_20px_rgba(0,212,255,0.5)] transition-all duration-300">
+                    <Icon className="w-8 h-8 text-neon-blue mx-auto mb-2 drop-shadow-[0_0_8px_rgba(0,212,255,0.8)]" />
                     <div className="text-2xl font-bold text-white mb-1">
                       {loading ? (
                         <div className="animate-pulse bg-gray-600 h-6 w-12 rounded mx-auto"></div>
@@ -262,8 +293,15 @@ const Home = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-neon-blue/10 to-neon-purple/10">
-        <div className="container mx-auto px-4 text-center">
+      <section className="relative py-20 overflow-hidden">
+        {/* Background Image */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${ctaBg})` }}
+        ></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/80"></div>
+        
+        <div className="container mx-auto px-4 text-center relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}

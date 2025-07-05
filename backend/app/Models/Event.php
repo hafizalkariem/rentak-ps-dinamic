@@ -18,7 +18,8 @@ class Event extends Model
         'prize_pool',
         'status',
         'image_url',
-        'is_featured'
+        'is_featured',
+        'game_id'
     ];
 
     protected $casts = [
@@ -44,9 +45,18 @@ class Event extends Model
         return $query->where('event_type', $type);
     }
 
+    public function game()
+    {
+        return $this->belongsTo(Game::class);
+    }
+
+    public function participants()
+    {
+        return $this->hasMany(EventParticipant::class);
+    }
+
     public function getParticipantsCountAttribute()
     {
-        // This would be calculated from event_participants table
-        return 0; // Placeholder
+        return $this->participants()->count();
     }
 }
