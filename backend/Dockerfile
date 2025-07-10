@@ -2,13 +2,17 @@
 FROM php:8.2-fpm-alpine
 
 # Instal dependensi sistem yang dibutuhkan
+# Instal dependensi sistem yang dibutuhkan untuk ekstensi PHP dan aplikasi
 RUN apk add --no-cache \
     nginx \
     mysql-client \
     curl \
     git \
     supervisor \
-    fcgi
+    fcgi \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev
 
 # Instal ekstensi PHP yang umum dibutuhkan Laravel
 RUN docker-php-ext-install pdo_mysql opcache bcmath exif pcntl gd
