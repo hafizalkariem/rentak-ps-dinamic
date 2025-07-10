@@ -15,6 +15,7 @@ import {
 import { eventService } from '../services/api';
 import { Event, ApiResponse } from '../types';
 import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,7 @@ const EventDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState(null);
   const [toast, setToast] = useState({ message: '', type: 'success' as 'success' | 'error' | 'warning', isVisible: false });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, event: null as Event | null });
 
   useEffect(() => {
     if (id) {
@@ -53,15 +55,15 @@ const EventDetail = () => {
     setToast({ message, type, isVisible: true });
   };
 
-  const handleRegister = async () => {
+  const handleRegister = async (event: Event) => {
+    // Check if user is logged in
     if (!user) {
       showToast('Please login first to register for events', 'warning');
       setTimeout(() => window.location.href = '/login', 1500);
       return;
     }
 
-    if (!event) return;
-
+    // Check event status
     if (event.status === 'full') {
       showToast('Sorry, this event is full!', 'error');
       return;
@@ -72,11 +74,22 @@ const EventDetail = () => {
       return;
     }
 
+    // Show confirmation modal
+    setConfirmModal({ isOpen: true, event });
+  };
+
+  const handleConfirmRegistration = async () => {
+    const event = confirmModal.event;
+    if (!event) return;
+    
+    setConfirmModal({ isOpen: false, event: null });
+
     try {
       const token = localStorage.getItem('auth_token');
       
       if (!token) {
         showToast('Please login first', 'warning');
+        setTimeout(() => window.location.href = '/login', 1500);
         return;
       }
       
@@ -92,12 +105,14 @@ const EventDetail = () => {
       const data = await response.json();
 
       if (data.success) {
-        showToast('Registration successful!', 'success');
+        showToast('Registration successful! You will receive a confirmation email shortly.', 'success');
+        // Refresh event to update participant count
         fetchEventDetail(id!);
       } else {
         showToast(data.message || 'Registration failed', 'error');
       }
     } catch (error) {
+      console.error('Registration error:', error);
       showToast('Registration failed. Please try again.', 'error');
     }
   };
@@ -222,8 +237,7 @@ const EventDetail = () => {
                 <div className="bg-dark-card/80 backdrop-blur-sm border border-neon-green/30 rounded-xl p-4 hover:border-neon-green hover:shadow-[0_0_15px_rgba(0,255,136,0.3)] transition-all duration-300">
                   <Users className="w-6 h-6 text-neon-green mb-2" />
                   <h3 className="font-gaming text-sm font-bold text-white mb-1">Players</h3>
-                  <p className="text-white font-bold text-sm">{event.current_participants}/{event.max_participants}</p>
-                </div>
+                  <p className="text-white font-bold text-sm">{event.participants_count || 0}/{event.max_participants}</p>                </div>
                 
                 <div className="bg-dark-card/80 backdrop-blur-sm border border-yellow-400/30 rounded-xl p-4 hover:border-yellow-400 hover:shadow-[0_0_15px_rgba(255,255,0,0.3)] transition-all duration-300">
                   <DollarSign className="w-6 h-6 text-yellow-400 mb-2" />
@@ -240,15 +254,15 @@ const EventDetail = () => {
               
               {/* Register Button */}
               <button
-                onClick={handleRegister}
-                disabled={event.status !== 'open'}
-                className={`px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 ${event.status === 'open'
-                    ? 'bg-gradient-to-r from-neon-blue to-neon-purple text-white hover:animate-glow hover:scale-105'
-                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                onClick={() => handleRegister(event)}
+                disabled={event.status === 'full' || event.status === 'closed'}
+                className={`px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 ${
+                  event.status === 'full' || event.status === 'closed'
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-neon-blue to-neon-purple text-white hover:animate-glow hover:scale-105'
                 }`}
               >
-                {event.status === 'open' ? '🎮 Register Now' : 
-                 event.status === 'full' ? '❌ Event Full' : '🔒 Registration Closed'}
+                {event.status === 'full' ? '❌ Event Full' : event.status === 'closed' ? '🔒 Registration Closed' : '🎮 Register Now'}
               </button>
             </motion.div>
           </div>
@@ -274,13 +288,23 @@ const EventDetail = () => {
         </motion.div>
       </div>
 
-      {toast.isVisible && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast({ ...toast, isVisible: false })}
-        />
-      )}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={() => setToast({ ...toast, isVisible: false })}
+      />
+      
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title="Confirm Registration"
+        message={confirmModal.event ? `Register for ${confirmModal.event.title}?\n\nEntry Fee: ${confirmModal.event.entry_fee === 0 ? 'Free' : `Rp ${confirmModal.event.entry_fee.toLocaleString()}`}\nDate: ${new Date(confirmModal.event.event_date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
+        confirmText="Register Now"
+        cancelText="Cancel"
+        onConfirm={handleConfirmRegistration}
+        onCancel={() => setConfirmModal({ isOpen: false, event: null })}
+      />
     </div>
   );
 };

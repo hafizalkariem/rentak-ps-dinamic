@@ -43,6 +43,9 @@ class EventController extends Controller
 
     public function show(Event $event): JsonResponse
     {
+        $event->load(['game', 'participants']);
+        $event->loadCount('participants');
+        
         return response()->json([
             'success' => true,
             'data' => $event
