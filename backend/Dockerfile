@@ -20,8 +20,11 @@ RUN docker-php-ext-install pdo_mysql opcache bcmath exif pcntl gd
 # Set working directory di dalam kontainer
 WORKDIR /app
 
+
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 # Copy kode aplikasi Laravel Anda dari host (lokasi Dockerfile berada) ke /app di kontainer
 # Karena Dockerfile ada di 'backend/', ini akan menyalin seluruh isi 'backend/'
+RUN composer install --no-dev --optimize-autoloader
 COPY . /app
 
 # Konfigurasi Nginx
