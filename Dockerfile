@@ -31,7 +31,6 @@ COPY backend /app
 RUN composer install --no-dev --optimize-autoloader
 
 # Konfigurasi Nginx
-# Path sekarang relatif terhadap root repositori: backend/docker/nginx/default.conf
 COPY backend/docker/nginx/default.conf /etc/nginx/http.d/default.conf
 
 # Konfigurasi PHP-FPM
@@ -42,12 +41,8 @@ COPY backend/docker/php-fpm/php.ini /etc/php82/conf.d/php.ini
 COPY backend/docker/supervisord.conf /etc/supervisord.conf
 
 # Atur izin direktori storage dan cache yang dibutuhkan Laravel
-# Path sudah relatif terhadap WORKDIR /app
 RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache && \
     chmod -R 775 /app/storage /app/bootstrap/cache
-
-# Jalankan migrasi dan seeder di fase build (OPSIONAL, HANYA UNTUK DEV/TESTING)
-# RUN php artisan migrate:fresh --seed --force || true
 
 # Expose port yang akan digunakan Nginx (ini adalah PORT yang disediakan Railway)
 EXPOSE ${PORT}
