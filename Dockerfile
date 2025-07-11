@@ -2,11 +2,7 @@
 FROM php:8.3-fpm-alpine
 
 # Instal dependensi sistem
-RUN apk add --no-cache \
-    nginx \
-    mysql-client \
-    supervisor \
-    bash
+RUN apk add --no-cache     mysql-client     supervisor     bash     caddy --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
 
 # Instal ekstensi PHP
 RUN docker-php-ext-install pdo_mysql opcache bcmath exif pcntl
@@ -36,8 +32,9 @@ RUN php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache
 
-# Konfigurasi Nginx, PHP-FPM, dan Supervisor
-COPY backend/docker/nginx/default.conf /etc/nginx/http.d/default.conf
+# Konfigurasi Caddy, PHP-FPM, dan Supervisor
+COPY backend/docker/caddy/Caddyfile /etc/caddy/Caddyfile
+
 COPY backend/docker/php-fpm/www.conf /etc/php83/php-fpm.d/www.conf
 COPY backend/docker/php-fpm/php.ini /etc/php83/conf.d/php.ini
 COPY backend/docker/supervisord.conf /etc/supervisord.conf
