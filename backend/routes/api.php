@@ -20,21 +20,21 @@ Route::prefix('v1')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     // Consoles
     Route::apiResource('consoles', ConsoleController::class);
-    
+
     // Games
     Route::apiResource('games', GameController::class);
-    
+
     // Genres
     Route::get('genres', [GenreController::class, 'index']);
-    
+
     // Events
     Route::apiResource('events', EventController::class);
     Route::post('events/{event}/register', [EventController::class, 'register'])->middleware('auth:sanctum');
-    
+
     // Bookings
     Route::get('bookings/check-availability', [BookingController::class, 'checkAvailability']);
     Route::apiResource('bookings', BookingController::class);
-    
+
     // Dashboard
     Route::get('dashboard/stats', [DashboardController::class, 'getStats']);
 });
@@ -43,17 +43,17 @@ Route::prefix('v1')->group(function () {
 Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('me', [AuthController::class, 'me']);
-    
+
     // Admin routes
-    Route::middleware('admin')->prefix('admin')->group(function () {
+    Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('dashboard', [AdminController::class, 'dashboard']);
         Route::get('users', [AdminController::class, 'users']);
         Route::get('bookings', [AdminController::class, 'bookings']);
         Route::put('bookings/{id}/status', [AdminController::class, 'updateBookingStatus']);
-        
+
         // Admin Game Management
         Route::apiResource('games', AdminGameController::class);
-        
+
         // Admin Event Management
         Route::apiResource('events', AdminEventController::class);
     });

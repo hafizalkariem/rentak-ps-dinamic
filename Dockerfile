@@ -1,51 +1,57 @@
 # Gunakan base image PHP dengan FPM
-FROM php:8.2-fpm-alpine
+FROM php:8.3-fpm-alpine
 
-# Instal dependensi sistem yang dibutuhkan untuk ekstensi PHP dan aplikasi
+# Instal dependensi sistem
 RUN apk add --no-cache \
     nginx \
     mysql-client \
-    curl \
-    git \
     supervisor \
-    fcgi \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev
+    bash
 
-# Instal ekstensi PHP yang umum dibutuhkan Laravel
-RUN docker-php-ext-install pdo_mysql opcache bcmath exif pcntl gd
+# Instal ekstensi PHP
+RUN docker-php-ext-install pdo_mysql opcache bcmath exif pcntl
 
-# Set working directory di dalam kontainer
+# Set working directory
 WORKDIR /app
 
-# Instal Composer secara global
+# Instal Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Copy kode aplikasi Laravel Anda dari folder 'backend' di host ke /app di kontainer
-# Ini akan menyalin isi dari 'your-project-root/backend' ke '/app'
-COPY backend /app
+# Salin file composer terlebih dahulu untuk caching
+COPY backend/composer.json backend/composer.lock ./
+RUN composer install --no-dev --no-autoloader --no-scripts --no-interaction
 
-# Jalankan composer install
-# Ini akan dijalankan SETELAH semua file Laravel (termasuk composer.json) disalin ke /app
-RUN composer install --no-dev --optimize-autoloader
+# Salin sisa kode aplikasi
+COPY backend/ /app
 
-# Konfigurasi Nginx
+# Buat file .env dari .env.example
+RUN cp .env.example .env
+
+# Jalankan sisa perintah composer dan generate key
+RUN composer install --no-dev --optimize-autoloader --no-interaction && \
+    php artisan key:generate --force
+
+# Cache konfigurasi dan rute untuk produksi
+RUN php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan view:cache
+
+# Konfigurasi Nginx, PHP-FPM, dan Supervisor
 COPY backend/docker/nginx/default.conf /etc/nginx/http.d/default.conf
-
-# Konfigurasi PHP-FPM
-COPY backend/docker/php-fpm/www.conf /etc/php82/php-fpm.d/www.conf
-COPY backend/docker/php-fpm/php.ini /etc/php82/conf.d/php.ini
-
-# Konfigurasi Supervisor
+COPY backend/docker/php-fpm/www.conf /etc/php83/php-fpm.d/www.conf
+COPY backend/docker/php-fpm/php.ini /etc/php83/conf.d/php.ini
 COPY backend/docker/supervisord.conf /etc/supervisord.conf
 
-# Atur izin direktori storage dan cache yang dibutuhkan Laravel
+# Atur hak akses
 RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache && \
     chmod -R 775 /app/storage /app/bootstrap/cache
 
-# Expose port yang akan digunakan Nginx (ini adalah PORT yang disediakan Railway)
-EXPOSE ${PORT}
+# Buat skrip entrypoint
+COPY backend/docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Perintah untuk menjalankan Supervisor, yang akan mengelola Nginx dan PHP-FPM
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+# Expose port 8080
+EXPOSE 8080
+
+# Jalankan entrypoint
+CMD ["/entrypoint.sh"]
