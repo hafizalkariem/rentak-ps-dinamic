@@ -93,7 +93,7 @@ const EventDetail = () => {
         return;
       }
       
-      const response = await fetch(`http://localhost:8000/api/v1/events/${event.id}/register`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/events/${event.id}/register`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
